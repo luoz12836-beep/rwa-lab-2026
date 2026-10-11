@@ -21,10 +21,10 @@ numbers and yields, you have drifted back into Lab 1.
 
 Pick the track that matches your machine. **Everything after this section is identical for everyone.**
 
-| You are on | Track |
-|---|---|
-| macOS / Linux | **A** — install Foundry locally |
-| Windows | **B** — Codespaces, nothing installed on your machine |
+| You are on    | Track                                                 |
+| ------------- | ----------------------------------------------------- |
+| macOS / Linux | **A** — install Foundry locally                       |
+| Windows       | **B** — Codespaces, nothing installed on your machine |
 
 > `lib/` (`forge-std`, `openzeppelin-contracts`) **ships inside this repository**.
 > Neither track needs `git clone --recursive`, and neither needs `make setup` —
@@ -122,15 +122,15 @@ Deployment prints the admin plus seven contracts. Export the ones you need (`$US
 
 The bridge has four planks. Each one is a contract or a role in this repo.
 
-| File | Role | Plank |
-|---|---|---|
-| `src/MockUSDC.sol` | **Cash.** 6 decimals, with a test faucet. The thing that flows across the bridge | — |
-| `src/ComplianceRegistry.sol` | **The guest list.** `setWhitelisted()` / `isWhitelisted()`, gated by `COMPLIANCE_ROLE` | (d) admission |
-| `src/TBillToken.sol` | **The claim.** ERC-20, **18 decimals**, mint/burn gated, and every balance change must pass both endpoints' whitelist | (d) admission |
-| `src/TBillVault.sol` | **The on-ramp and the books.** `subscribe()` prices shares at the attested NAV; `attest()` is the reporter's only way to move it | (b) attestation |
-| `src/exercises/MockTBillCustodian.sol` | **The custodian / SPV.** Answers exactly one question: `realHoldings()` — how much is actually there? | (a) custody |
-| `src/exercises/MockPriceFeed.sol` | **The NAV oracle.** 8 decimals; `1.00e8` is par | (b) attestation |
-| `src/exercises/RedemptionQueue.sol` | **T+1.** Shares in, a queue ticket out, cash later — **your TODOs, Ex5** | (c) redemption |
+| File                                   | Role                                                                                                                             | Plank           |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | --------------- |
+| `src/MockUSDC.sol`                     | **Cash.** 6 decimals, with a test faucet. The thing that flows across the bridge                                                 | —               |
+| `src/ComplianceRegistry.sol`           | **The guest list.** `setWhitelisted()` / `isWhitelisted()`, gated by `COMPLIANCE_ROLE`                                           | (d) admission   |
+| `src/TBillToken.sol`                   | **The claim.** ERC-20, **18 decimals**, mint/burn gated, and every balance change must pass both endpoints' whitelist            | (d) admission   |
+| `src/TBillVault.sol`                   | **The on-ramp and the books.** `subscribe()` prices shares at the attested NAV; `attest()` is the reporter's only way to move it | (b) attestation |
+| `src/exercises/MockTBillCustodian.sol` | **The custodian / SPV.** Answers exactly one question: `realHoldings()` — how much is actually there?                            | (a) custody     |
+| `src/exercises/MockPriceFeed.sol`      | **The NAV oracle.** 8 decimals; `1.00e8` is par                                                                                  | (b) attestation |
+| `src/exercises/RedemptionQueue.sol`    | **T+1.** Shares in, a queue ticket out, cash later — **your TODOs, Ex5**                                                         | (c) redemption  |
 
 ### The two invariants you will defend (Ex6)
 
@@ -222,3 +222,97 @@ What the zip must contain:
 
 The discussion prompts live in `STUDENT-QUESTIONS.md` — one per plank, no standard answers, and the
 real point of this lab.
+
+## Deployment (Sepolia)
+
+Network: Sepolia testnet (chain ID 11155111)
+Admin / deployer: `0x6b4bbDb2486B92Fd6DA12cE38678aCcc907D292B`
+
+| Contract           | Address                                      | Etherscan                                                                                        |
+| ------------------ | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| MockUSDC           | `0xe7503383DCa730bD25d47CBe46B09BC5c7Ec8D0D` | [verified](https://sepolia.etherscan.io/address/0xe7503383DCa730bD25d47CBe46B09BC5c7Ec8D0D#code) |
+| ComplianceRegistry | `0x8EbF1494065784186755B1c4310c7D93be5C3F06` | [verified](https://sepolia.etherscan.io/address/0x8EbF1494065784186755B1c4310c7D93be5C3F06#code) |
+| MockPriceFeed      | `0x908827Bf7b3E0A7B9319f9dE0f2E1DC00f0a507D` | [verified](https://sepolia.etherscan.io/address/0x908827Bf7b3E0A7B9319f9dE0f2E1DC00f0a507D#code) |
+| TBillToken         | `0xaaCFD58d162E9F3959bE3FEa9066f07E4A9bD39A` | [verified](https://sepolia.etherscan.io/address/0xaaCFD58d162E9F3959bE3FEa9066f07E4A9bD39A#code) |
+| MockTBillCustodian | `0x68C673dF91E902ae136965912Fe51a2AAcD47173` | [verified](https://sepolia.etherscan.io/address/0x68C673dF91E902ae136965912Fe51a2AAcD47173#code) |
+| TBillVault         | `0x76a45Ab87eFaAe86E5191484cB45Ad880dFB9fDb` | [verified](https://sepolia.etherscan.io/address/0x76a45Ab87eFaAe86E5191484cB45Ad880dFB9fDb#code) |
+| RedemptionQueue    | `0x7eC7C6F9247F476fe7B564E197740be2B6853ba8` | [verified](https://sepolia.etherscan.io/address/0x7eC7C6F9247F476fe7B564E197740be2B6853ba8#code) |
+
+## Architecture Diagram
+
+```
++------------------------------------------------------------------------------------+
+| Admin / Deploy.s.sol                                                               |
+| grants every role.  In this repo one key holds all of them: CUSTODIAN,             |
+| REPORTER, OPERATOR, MINTER, PAUSER, COMPLIANCE and SETTLER.                        |
++------------------------------------------------------------------------------------+
+
++------------------------------------------------------------------------------------+
+| OFF-CHAIN                                                                          |
+| T-bills sit at a custodian bank, held by the SPV, bankruptcy-remote                |
+| from the issuer.  Nothing on-chain can see them directly.                          |
++------------------------------------------------------------------------------------+
+            | realHoldings()                                | NAV per share
+            | a number, not the asset                       | a number, not the market
+            v                                               v
+=================================== trust boundary ===================================
++----------------------------------+              +----------------------------------+
+| (a) CUSTODY                      |              | (b) ATTESTATION                  |
+| MockTBillCustodian               |              | MockPriceFeed                    |
+|                                  |              |                                  |
+| recordPurchase()                 |              | setPrice(nav)                    |
+| recordSale()  (never called)     |              | written by TBillVault.attest()   |
+| CUSTODIAN_ROLE                   |              | REPORTER_ROLE                    |
++----------------------------------+              +----------------------------------+
+            | USDC invest()                                 | NAV, 8 decimals
+            v                                               v
++------------------------------------------------------------------------------------+
+| CROSSING 1  -  TBillVault                                                          |
+|                                                                                    |
+|     USDC in   -------------------------->   tBILL out                              |
+|     MockUSDC, 6 dp                          TBillToken, 18 dp                      |
+|                                                                                    |
+| subscribe()     sharesForAssets()     assetsForShares()                            |
++------------------------------------------------------------------------------------+
+            | USDC releaseReserves()    only the queue may call this
+            v
++------------------------------------------------------------------------------------+
+| (c) REDEMPTION  -  RedemptionQueue                                    [CROSSING 2] |
+|                                                                                    |
+|     tBILL in  -------------------------->   USDC out                               |
+|     TBillToken, 18 dp                       MockUSDC, 6 dp                         |
+|                                                                                    |
+| enqueue()    settle()    claim()        T+1, not instant                           |
++------------------------------------------------------------------------------------+
++------------------------------------------------------------------------------------+
+| (d) ADMISSION  -  ComplianceRegistry + TBillToken                                  |
+|                                                                                    |
+| every mint, transfer and burn checks BOTH endpoints:                               |
+| isWhitelisted(from) && isWhitelisted(to)                                           |
++------------------------------------------------------------------------------------+
++------------------------------------------------------------------------------------+
+| THREE SCALES:   USDC 6 dp   |   NAV 8 dp   |   tBILL 18 dp                         |
+| assets = shares * nav / 1e20       (18 + 8 = 26 decimals, minus 6 = 20)            |
++------------------------------------------------------------------------------------+
+
+Money flow (the subscribe-redeem loop)
+(1)  Investor          --> TBillVault        approve USDC, then subscribe(assets)
+(2)  TBillVault        --> Investor          mint tBILL at today's NAV
+(3)  Investor          --> RedemptionQueue   approve tBILL, then enqueue(shares)
+(4)  RedemptionQueue   --> TBillVault        releaseReserves() pulls USDC in
+(5)  RedemptionQueue   --> Investor          claim() pays the locked amount
+
+Contract calls
+TBillVault.subscribe(assets)   -> TBillToken.mint()                sharesForAssets()
+TBillVault.invest(assets)      -> MockTBillCustodian.recordPurchase()   OPERATOR_ROLE
+TBillVault.attest(nav)         -> MockPriceFeed.setPrice()              REPORTER_ROLE
+RedemptionQueue.settle(assets) -> TBillVault.releaseReserves() + TBillToken.burn()
+Admin                          -> grantRole(...) on all seven contracts
+
+Attack surface
+One key holds every role.  A compromised key can move the NAV, drain the
+buffer, freeze transfers and burn balances.  Questions B1, C1 and C2 are
+about cutting that key into pieces.
+```
+
+
